@@ -1,7 +1,7 @@
 import pandas as pd
 from collections.abc import Mapping
 from datetime import datetime
-
+import pickle
 
 class Utente:
 
@@ -63,7 +63,7 @@ class Utente:
             self.anoMes = pd_row['AnoMes']
             self.data = pd_row['Mo-Data Movimento'] # Data em que é gerado o movimento de mudança de categoria
             self.categoria = pd_row['DCategoria']
-            self.categoriaAnterior = pd_row['DCategoria anterior']  # Descritivo da categoria anterior ao movimento (dados disponíveis a partir de janeiro de 2012)
+            self.categoriaAnterior = pd_row['Dcategoria anterior']  # Descritivo da categoria anterior ao movimento (dados disponíveis a partir de janeiro de 2012)
 
 
 
@@ -126,6 +126,7 @@ class Utente:
     
 
     # Utente Methods
+    # TODO: method unico para todos os add*
 
     def addNewPedido(self, pd_row):
         # TODO: Temos casos de pedidos de emprego no mesmo mes...faz sentido? Não se deveria ignorar?
@@ -134,7 +135,6 @@ class Utente:
         self.pedidosEmprego[ts] = self.Pedido(pd_row) # adiciona nova entrada
     
     def addNewAnulacao(self, pd_row):
-        print(pd_row)
         try:
             ts = int(pd_row['Anulacao Data'].timestamp()) # !!! Corresponde à data efectiva do evento
         except: # Fallback caso o campo Anulacao Data não tenha registo
@@ -144,31 +144,54 @@ class Utente:
         self.anulacoes[ts] = self.Anulacao(pd_row) # adiciona nova entrada
     
     def addNewIntervencao(self, pd_row):
-        ts = int(pd_row['Intervenção Data'].timestamp()) # !!! Corresponde à data efectiva do evento
+        try:
+            ts = int(pd_row['Intervenção Data'].timestamp()) # !!! Corresponde à data efectiva do evento
+        except: # Fallback caso o campo Anulacao Data não tenha registo
+            ts = Utente.anoMesToTimeStamp(pd_row['AnoMes']) # converte AnoMes para timestamp
+
         ts = Utente.returnUniqueTSFromDict(self.intervencoes, ts)
         self.intervencoes[ts] = self.Intervencao(pd_row) # adiciona nova entrada
 
     def addNewEncaminhamento(self, pd_row):
-        ts = int(pd_row['Intervenção Data'].timestamp())
+        try:
+            ts = int(pd_row['Intervenção Data'].timestamp()) # !!! Corresponde à data efectiva do evento
+        except: # Fallback caso o campo Anulacao Data não tenha registo
+            ts = Utente.anoMesToTimeStamp(pd_row['AnoMes']) # converte AnoMes para timestamp
+
         ts = Utente.returnUniqueTSFromDict(self.encaminhamentos, ts)
         self.encaminhamentos[ts] = self.Encaminhamento(pd_row) # adiciona nova entrada    
 
     def addNewApresentacao(self, pd_row):
-        ts = int(pd_row['Apresentacao Data'].timestamp())
+        try:
+            ts = int(pd_row['Apresentacao Data'].timestamp()) # !!! Corresponde à data efectiva do evento
+        except: # Fallback caso o campo Anulacao Data não tenha registo
+            ts = Utente.anoMesToTimeStamp(pd_row['AnoMes']) # converte AnoMes para timestamp
+
         ts = Utente.returnUniqueTSFromDict(self.apresentacoes, ts)
         self.apresentacoes[ts] = self.Apresentacao(pd_row) # adiciona nova entrada    
 
     def addNewConvocatoria(self, pd_row):
-        ts = int(pd_row['Convocatoria Em'].timestamp())
+        try:
+            ts = int(pd_row['Convocatoria Em'].timestamp()) # !!! Corresponde à data efectiva do evento
+        except: # Fallback caso o campo Anulacao Data não tenha registo
+            ts = Utente.anoMesToTimeStamp(pd_row['AnoMes']) # converte AnoMes para timestamp
+
         ts = Utente.returnUniqueTSFromDict(self.convocatorias, ts)
         self.convocatorias[ts] = self.Convocatoria(pd_row) # adiciona nova entrada                   
 
     def addNewMudancaCategoria(self, pd_row):
-        ts = int(pd_row['Mo-Data Movimento'].timestamp())
+        try:
+            ts = int(pd_row['Mo-Data Movimento'].timestamp()) # !!! Corresponde à data efectiva do evento
+        except: # Fallback caso o campo Anulacao Data não tenha registo
+            ts = Utente.anoMesToTimeStamp(pd_row['AnoMes']) # converte AnoMes para timestamp
+
         ts = Utente.returnUniqueTSFromDict(self.mudancasCategoria, ts)
         self.mudancasCategoria[ts] = self.MudancaCategoria(pd_row) # adiciona nova entrada 
 
 class ListaUtentes(Mapping):
+    PICKLE_FILENAME = './temp/ListaUtentes.pickle'
+    SQL_LIMIT = 30000000
+
     def __init__(self):
         self.__dict__ = dict()
         
@@ -185,15 +208,52 @@ class ListaUtentes(Mapping):
     def __len__(self):
         return len(self.__dict__)
 
-    # Utente Methods
-    def parseUserHistoryFromDatasets(self, pedidos_inscritos_longos, sie_31):
-        self.parseInscriptions(pedidos_inscritos_longos)
-        self.parseCancellations(sie_31)
+    # ListaUtentes Methods
+    def fetch(self, passwordFile):
+        from sqlalchemy import create_engine
+        import pymysql
+        import pandas as pd
+
+        with open(passwordFile) as f: mysqlpass = f.read()
+
+        mysqlpass = mysqlpass.strip()
+
+        engine = create_engine('mysql+pymysql://grupo_1:{}@151.236.42.86:3306/iefp'.format(mysqlpass))
+        connection = engine.raw_connection()
+
+        pil = pd.read_sql('SELECT * FROM pedidos_inscritos_longos LIMIT {}'.format(self.SQL_LIMIT), connection)
+        sie_31 = pd.read_sql('SELECT * FROM sie_31 LIMIT {}'.format(self.SQL_LIMIT), connection)
+        sie_35 = pd.read_sql('SELECT * FROM sie_35 LIMIT {}'.format(self.SQL_LIMIT), connection)
+        sie_36 = pd.read_sql('SELECT * FROM sie_36 LIMIT {}'.format(self.SQL_LIMIT), connection)
+        sie_37 = pd.read_sql('SELECT * FROM sie_37 LIMIT {}'.format(self.SQL_LIMIT), connection)
+        sie_38 = pd.read_sql('SELECT * FROM sie_38 LIMIT {}'.format(self.SQL_LIMIT), connection)
+        sie_43 = pd.read_sql('SELECT * FROM sie_43 LIMIT {}'.format(self.SQL_LIMIT), connection)
+
+        self.__parseUserHistoryFromDatasets(pil, sie_31, sie_35, sie_36, sie_37, sie_38, sie_43)
+
+        self.save()
+
+    def __parseUserHistoryFromDatasets(self, pedidos_inscritos_longos, sie_31, sie_35, sie_36, sie_37, sie_38, sie_43):
+        print("Starting parsing...")
+        self.parsePedidos(pedidos_inscritos_longos)
+        print("Parse dos pedidos terminado (1/7)")
+        self.parseAnulacoes(sie_31)
+        print("Parse das Anulações terminado (2/7)")
+        self.parseIntervencoes(sie_35)
+        print("Parse das Intervenções terminado (3/7)")
+        self.parseEncaminhamentos(sie_36)
+        print("Parse dos Encaminhamentos terminado (4/7)")
+        self.parseApresentacoes(sie_37)
+        print("Parse das Apresentações terminado (5/7)")
+        self.parseConvocatorias(sie_38)
+        print("Parse das Convocatórias terminado (6/7)")
+        self.parseMudancasCategoria(sie_43)
+        print("Parse das Mudanças de Categoria terminado (7/7)")
         
     def __addNewPedidoEmpregoTo(self, utente, pd_row):
         utente.addNewPedido(pd_row)
 
-    def parseInscriptions(self, pedidos_inscritos_longos):
+    def parsePedidos(self, pedidos_inscritos_longos):
         for index, row in pedidos_inscritos_longos.iterrows():
             idUtente = row['UteId']
 
@@ -203,17 +263,86 @@ class ListaUtentes(Mapping):
             else:                 # Id utente inexistente
                 self[idUtente] = Utente(row) # Cria nova entrada
 
-    def parseCancellations(self, pd_sie_31):
+    # TODO: method unico para todos parse*. 
+
+    def parseAnulacoes(self, pd_sie_31):
         countUtentesIgnorados = 0
         countTotal = 0
         for index, row in pd_sie_31.iterrows():
             countTotal += 1
             idUtente = int(row['ID'])
             if idUtente in self: # Id utente já existe
-                self.__addNewAnulacaoTo(self[idUtente], row)
+                self[idUtente].addNewAnulacao(row)
             else:
                 countUtentesIgnorados+=1 # Não faz nada porque não tem info desse utente
-        print("Total utentes existentes em sie_31 mas sem equivalencia na pedidos_inscritos_longos:"+str(countUtentesIgnorados))
+        print("Total de {} ({}%) utentes existentes em sie_31 mas sem equivalencia na pedidos_inscritos_longos:".format(countUtentesIgnorados, int(countUtentesIgnorados/countTotal*100)))
     
-    def __addNewAnulacaoTo(self, utente, pd_row):
-        utente.addNewAnulacao(pd_row)
+    def parseIntervencoes(self, pd_sie_35):
+        countUtentesIgnorados = 0
+        countTotal = 0
+        for index, row in pd_sie_35.iterrows():
+            countTotal += 1
+            idUtente = int(row['UteId'])
+            if idUtente in self: # Id utente já existe
+                self[idUtente].addNewIntervencao(row)
+            else:
+                countUtentesIgnorados+=1 # Não faz nada porque não tem info desse utente
+        print("Total de {} ({}%) utentes existentes em sie_35 mas sem equivalencia na pedidos_inscritos_longos:".format(countUtentesIgnorados, int(countUtentesIgnorados/countTotal*100)))
+        
+    def parseEncaminhamentos(self, pd_sie_36):
+        countUtentesIgnorados = 0
+        countTotal = 0
+        for index, row in pd_sie_36.iterrows():
+            countTotal += 1
+            idUtente = int(row['UteId'])
+            if idUtente in self: # Id utente já existe
+                self[idUtente].addNewEncaminhamento(row)
+            else:
+                countUtentesIgnorados+=1 # Não faz nada porque não tem info desse utente
+        print("Total de {} ({}%) utentes existentes em sie_36 mas sem equivalencia na pedidos_inscritos_longos:".format(countUtentesIgnorados, int(countUtentesIgnorados/countTotal*100)))
+
+    def parseApresentacoes(self, pd_sie_37):
+        countUtentesIgnorados = 0
+        countTotal = 0
+        for index, row in pd_sie_37.iterrows():
+            countTotal += 1
+            idUtente = int(row['UteId'])
+            if idUtente in self: # Id utente já existe
+                self[idUtente].addNewApresentacao(row)
+            else:
+                countUtentesIgnorados+=1 # Não faz nada porque não tem info desse utente
+        print("Total de {} ({}%) utentes existentes em pd_sie_37 mas sem equivalencia na pedidos_inscritos_longos:".format(countUtentesIgnorados, int(countUtentesIgnorados/countTotal*100)))
+
+    def parseConvocatorias(self, pd_sie_38):
+        countUtentesIgnorados = 0
+        countTotal = 0
+        for index, row in pd_sie_38.iterrows():
+            countTotal += 1
+            idUtente = int(row['UteId'])
+            if idUtente in self: # Id utente já existe
+                self[idUtente].addNewConvocatoria(row)
+            else:
+                countUtentesIgnorados+=1 # Não faz nada porque não tem info desse utente
+        print("Total de {} ({}%) utentes existentes em pd_sie_38 mas sem equivalencia na pedidos_inscritos_longos:".format(countUtentesIgnorados, int(countUtentesIgnorados/countTotal*100)))
+
+    def parseMudancasCategoria(self, pd_sie_43):
+        countUtentesIgnorados = 0
+        countTotal = 0
+        for index, row in pd_sie_43.iterrows():
+            countTotal += 1
+            idUtente = int(row['UteId'])
+            if idUtente in self: # Id utente já existe
+                self[idUtente].addNewMudancaCategoria(row)
+            else:
+                countUtentesIgnorados+=1 # Não faz nada porque não tem info desse utente
+        print("Total de {} ({}%) utentes existentes em pd_sie_43 mas sem equivalencia na pedidos_inscritos_longos:".format(countUtentesIgnorados, int(countUtentesIgnorados/countTotal*100)))
+
+    def save(self):
+        print('Saving to {}'.format(self.PICKLE_FILENAME))
+        with open(self.PICKLE_FILENAME, 'wb') as f:
+            pickle.dump(self, f)
+
+    def load(self):
+        print('Loading from {}'.format(self.PICKLE_FILENAME))
+        f = open(self.PICKLE_FILENAME, 'rb') 
+        self = pickle.load(f) 
