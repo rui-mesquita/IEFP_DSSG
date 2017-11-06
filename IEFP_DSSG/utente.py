@@ -2,6 +2,20 @@ import pandas as pd
 from collections.abc import Mapping
 from datetime import datetime
 import pickle
+import os.path
+import getpass
+
+TEMP_DIR = './temp/'
+PICKLE_FILENAME = 'ListaUtentes.pickle'
+PICKLE_FILEPATH = TEMP_DIR+PICKLE_FILENAME
+PASSWORD_FILENAME = './password.txt'
+SQL_LIMIT = 25000
+
+def date2str(date):
+    try:
+        return str(date.strftime("%Y/%m/%d"))
+    except:
+        return "N/A"
 
 class Utente:
 
@@ -10,20 +24,39 @@ class Utente:
     class Conjuge:
         def __init__ (self, estadoCivil, motivoIndisponibilidade):
             self.estadoCivil = estadoCivil
-            self.motivoIndisponibilidade = motivoIndisponibilidade 
+            self.motivoIndisponibilidade = motivoIndisponibilidade
+
+        def __str__(self):
+            return "Cônjuge: Estado Civil: {:>8}  | Motivo Indisponibilidade: {}". format(self.estadoCivil, self.motivoIndisponibilidade)
 
     class Pedido:
+        PRIORITY = 1
         def __init__ (self, pd_row):
             self.descricao = "Pedido de Emprego"
+            self.anoMes = pd_row['AnoMes']
+            self.data = pd_row['Candidatura-Data']
+
+        def __str__(self):
+            # Pedido Emprego: 19/01/2016 (201610)  
+            return "{:^20} | {:6} | {:9}".format(self.descricao, self.anoMes, date2str(self.data))
+
+        
 
     class Anulacao:
+        PRIORITY = 2
         def __init__ (self, pd_row):
             self.descricao = "Anulacao"
             self.anoMes = pd_row['AnoMes']
             self.data = pd_row['Anulacao Data']
             self.indD = pd_row['DMotivo Anulação']
 
+        def __str__(self):
+            # Pedido Emprego: 19/01/2016 (201610)  
+            return "{:^20} | {:6} | {:9} | {}".format(self.descricao, self.anoMes, date2str(self.data), self.indD)
+
+
     class Intervencao:
+        PRIORITY = 5
         def __init__ (self, pd_row):
             self.descricao = "Intervenção"
             self.anoMes = pd_row['AnoMes']
@@ -32,38 +65,61 @@ class Utente:
             self.indD = pd_row['Intervencao Ind D']
             self.resultado = pd_row['DResultado Intervencao']
 
+        def __str__(self):
+            return "{:^20} | {:6} | {:9} | {:20.20} | {:30.30} | {:12.12}".format(self.descricao, self.anoMes, date2str(self.data), str(self.indD), str(self.codigoD), str(self.resultado))
+
+
     class Encaminhamento:
+        PRIORITY = 4
         def __init__ (self, pd_row):
             self.descricao = "Encaminhamento"
             self.anoMes = pd_row['AnoMes']
             self.data = pd_row['Intervenção Data']
             self.codigoD = pd_row['Intervenção Codigo D']
             self.resultado = pd_row['DResultado Intervencao']
-    
+
+        def __str__(self):
+            return "{:^20} | {:6} | {:9} | {:30.30} | {:20}".format(self.descricao, self.anoMes, date2str(self.data), str(self.codigoD), str(self.resultado))
+
+
     class Apresentacao:
+        PRIORITY = 6
         def __init__ (self, pd_row):
             self.descricao = "Apresentação"
             self.anoMes = pd_row['AnoMes']
             self.data = pd_row['Apresentacao Data']
-            self.ofertaNr = pd_row['Oferta Nr']
-            self.ofertaNr = pd_row['Oferta Servico']
+            self.ofertaNr = int(pd_row['Oferta Nr'])
+            self.ofertaServico = pd_row['Oferta Servico']
             self.resultado = pd_row['DResultado Apresentação']
 
+        def __str__(self):
+            return "{:^20} | {:6} | {:9} | {:5} | {:3} | {:60.60}".format(self.descricao, self.anoMes, date2str(self.data), str(self.ofertaNr), str(self.ofertaServico), str(self.resultado))
+
+
     class Convocatoria:
+        PRIORITY = 3
         def __init__ (self, pd_row):
-            self.descricao = "Apresentação"
+            self.descricao = "Convocatória"
             self.anoMes = pd_row['AnoMes']
             self.data = pd_row['Convocatoria Em'] # Data em que foi efetuada a convocatória
             self.tipo = pd_row['DTipo Convocatória']
             self.resultado = pd_row['DResultado Convocatória']
 
+        def __str__(self):
+            return "{:^20} | {:6} | {:9} | {:19} | {:15.15}".format(self.descricao, self.anoMes, date2str(self.data), str(self.tipo), str(self.resultado))
+
+
     class MudancaCategoria:
+        PRIORITY = 7
         def __init__ (self, pd_row):
             self.descricao = "Mudança de Categoria"
             self.anoMes = pd_row['AnoMes']
             self.data = pd_row['Mo-Data Movimento'] # Data em que é gerado o movimento de mudança de categoria
             self.categoria = pd_row['DCategoria']
             self.categoriaAnterior = pd_row['Dcategoria anterior']  # Descritivo da categoria anterior ao movimento (dados disponíveis a partir de janeiro de 2012)
+
+        def __str__(self):
+            return "{:^20} | {:6} | {:9} | {:^35.35} | {:^35.35}".format(self.descricao, self.anoMes, date2str(self.data), str(self.categoria), str(self.categoriaAnterior))
 
 
 
@@ -97,7 +153,16 @@ class Utente:
     def nrPedidosEmprego(self):
         return len(self.pedidosEmprego)
 
-    ## Utente Static Methods
+    ## Utente Methods
+
+    def generateHistorico(self):
+        unorderedHistorico = {**self.pedidosEmprego, **self.anulacoes, **self.intervencoes, **self.encaminhamentos, **self.apresentacoes, **self.convocatorias, **self.mudancasCategoria}
+        orderedTimeStamps = sorted(unorderedHistorico)
+
+        lines = []
+        for ts in orderedTimeStamps:
+            lines.append(str(unorderedHistorico[ts]))
+        return lines
 
     @staticmethod
     def nivelDeficiencia(descricaoDeficiencia):
@@ -130,8 +195,14 @@ class Utente:
 
     def addNewPedido(self, pd_row):
         # TODO: Temos casos de pedidos de emprego no mesmo mes...faz sentido? Não se deveria ignorar?
-        ts = Utente.anoMesToTimeStamp(pd_row['AnoMes']) # converte AnoMes para timestamp
+        try:
+            ts = int(pd_row['Candidatura-Data'].timestamp()) # !!! Corresponde à data efectiva do evento
+        except: # Fallback caso o campo Anulacao Data não tenha registo
+            ts = Utente.anoMesToTimeStamp(pd_row['AnoMes']) # converte AnoMes para timestamp
+        
         ts = Utente.returnUniqueTSFromDict(self.pedidosEmprego, ts) # incrementa 1 se timestamp já existe
+        ts = ts *10 + self.Pedido.PRIORITY # Inclui prioridade para melhor reordenacao
+
         self.pedidosEmprego[ts] = self.Pedido(pd_row) # adiciona nova entrada
     
     def addNewAnulacao(self, pd_row):
@@ -141,6 +212,8 @@ class Utente:
             ts = Utente.anoMesToTimeStamp(pd_row['AnoMes']) # converte AnoMes para timestamp
 
         ts = Utente.returnUniqueTSFromDict(self.anulacoes, ts)
+        ts = ts *10 + self.Anulacao.PRIORITY # Inclui prioridade para melhor reordenacao
+
         self.anulacoes[ts] = self.Anulacao(pd_row) # adiciona nova entrada
     
     def addNewIntervencao(self, pd_row):
@@ -150,6 +223,8 @@ class Utente:
             ts = Utente.anoMesToTimeStamp(pd_row['AnoMes']) # converte AnoMes para timestamp
 
         ts = Utente.returnUniqueTSFromDict(self.intervencoes, ts)
+        ts = ts *10 + self.Intervencao.PRIORITY # Inclui prioridade para melhor reordenacao
+
         self.intervencoes[ts] = self.Intervencao(pd_row) # adiciona nova entrada
 
     def addNewEncaminhamento(self, pd_row):
@@ -159,6 +234,8 @@ class Utente:
             ts = Utente.anoMesToTimeStamp(pd_row['AnoMes']) # converte AnoMes para timestamp
 
         ts = Utente.returnUniqueTSFromDict(self.encaminhamentos, ts)
+        ts = ts *10 + self.Encaminhamento.PRIORITY # Inclui prioridade para melhor reordenacao
+
         self.encaminhamentos[ts] = self.Encaminhamento(pd_row) # adiciona nova entrada    
 
     def addNewApresentacao(self, pd_row):
@@ -168,6 +245,8 @@ class Utente:
             ts = Utente.anoMesToTimeStamp(pd_row['AnoMes']) # converte AnoMes para timestamp
 
         ts = Utente.returnUniqueTSFromDict(self.apresentacoes, ts)
+        ts = ts *10 + self.Apresentacao.PRIORITY # Inclui prioridade para melhor reordenacao
+        
         self.apresentacoes[ts] = self.Apresentacao(pd_row) # adiciona nova entrada    
 
     def addNewConvocatoria(self, pd_row):
@@ -177,6 +256,8 @@ class Utente:
             ts = Utente.anoMesToTimeStamp(pd_row['AnoMes']) # converte AnoMes para timestamp
 
         ts = Utente.returnUniqueTSFromDict(self.convocatorias, ts)
+        ts = ts *10 + self.Convocatoria.PRIORITY # Inclui prioridade para melhor reordenacao
+
         self.convocatorias[ts] = self.Convocatoria(pd_row) # adiciona nova entrada                   
 
     def addNewMudancaCategoria(self, pd_row):
@@ -186,14 +267,18 @@ class Utente:
             ts = Utente.anoMesToTimeStamp(pd_row['AnoMes']) # converte AnoMes para timestamp
 
         ts = Utente.returnUniqueTSFromDict(self.mudancasCategoria, ts)
+        ts = ts *10 + self.MudancaCategoria.PRIORITY # Inclui prioridade para melhor reordenacao
+
+
         self.mudancasCategoria[ts] = self.MudancaCategoria(pd_row) # adiciona nova entrada 
 
 class ListaUtentes(Mapping):
-    PICKLE_FILENAME = './temp/ListaUtentes.pickle'
-    SQL_LIMIT = 30000000
-
-    def __init__(self):
+    def __init__(self, forceFetch = False):
         self.__dict__ = dict()
+        if forceFetch:
+            self.fetch()
+        else:
+            self.load()
         
     
     # The next five methods are requirements of the ABC.
@@ -209,46 +294,51 @@ class ListaUtentes(Mapping):
         return len(self.__dict__)
 
     # ListaUtentes Methods
-    def fetch(self, passwordFile):
+    def fetch(self):
         from sqlalchemy import create_engine
         import pymysql
         import pandas as pd
 
-        with open(passwordFile) as f: mysqlpass = f.read()
+        if os.path.isfile(PASSWORD_FILENAME):
+            with open(PASSWORD_FILENAME) as f: mysqlpass = f.read()
+        else:
+            print("Ficheiro {} não encontrado. Inserir password acesso à MySQL DB: ". format(PASSWORD_FILENAME))
+            mysqlpass = getpass.getpass()
+            with open(PASSWORD_FILENAME, 'w') as f: f.write(mysqlpass)
 
         mysqlpass = mysqlpass.strip()
 
         engine = create_engine('mysql+pymysql://grupo_1:{}@151.236.42.86:3306/iefp'.format(mysqlpass))
         connection = engine.raw_connection()
 
-        pil = pd.read_sql('SELECT * FROM pedidos_inscritos_longos LIMIT {}'.format(self.SQL_LIMIT), connection)
-        sie_31 = pd.read_sql('SELECT * FROM sie_31 LIMIT {}'.format(self.SQL_LIMIT), connection)
-        sie_35 = pd.read_sql('SELECT * FROM sie_35 LIMIT {}'.format(self.SQL_LIMIT), connection)
-        sie_36 = pd.read_sql('SELECT * FROM sie_36 LIMIT {}'.format(self.SQL_LIMIT), connection)
-        sie_37 = pd.read_sql('SELECT * FROM sie_37 LIMIT {}'.format(self.SQL_LIMIT), connection)
-        sie_38 = pd.read_sql('SELECT * FROM sie_38 LIMIT {}'.format(self.SQL_LIMIT), connection)
-        sie_43 = pd.read_sql('SELECT * FROM sie_43 LIMIT {}'.format(self.SQL_LIMIT), connection)
+        print('A executar queries SQL...')
+        pil = pd.read_sql('SELECT * FROM pedidos_inscritos_longos LIMIT {}'.format(SQL_LIMIT), connection)
+        sie_31 = pd.read_sql('SELECT * FROM sie_31 LIMIT {}'.format(SQL_LIMIT), connection)
+        sie_35 = pd.read_sql('SELECT * FROM sie_35 LIMIT {}'.format(SQL_LIMIT), connection)
+        sie_36 = pd.read_sql('SELECT * FROM sie_36 LIMIT {}'.format(SQL_LIMIT), connection)
+        sie_37 = pd.read_sql('SELECT * FROM sie_37 LIMIT {}'.format(SQL_LIMIT), connection)
+        sie_38 = pd.read_sql('SELECT * FROM sie_38 LIMIT {}'.format(SQL_LIMIT), connection)
+        sie_43 = pd.read_sql('SELECT * FROM sie_43 LIMIT {}'.format(SQL_LIMIT), connection)
 
         self.__parseUserHistoryFromDatasets(pil, sie_31, sie_35, sie_36, sie_37, sie_38, sie_43)
 
         self.save()
 
     def __parseUserHistoryFromDatasets(self, pedidos_inscritos_longos, sie_31, sie_35, sie_36, sie_37, sie_38, sie_43):
-        print("Starting parsing...")
+        print("Parsing da tabela pedidos_inscritos_longos... (1/7)")
         self.parsePedidos(pedidos_inscritos_longos)
-        print("Parse dos pedidos terminado (1/7)")
+        print("Parsing das Anulacoes... (2/7)")
         self.parseAnulacoes(sie_31)
-        print("Parse das Anulações terminado (2/7)")
+        print("Parse das Intervenções... (3/7)")
         self.parseIntervencoes(sie_35)
-        print("Parse das Intervenções terminado (3/7)")
+        print("Parse dos Encaminhamentos... (4/7)")
         self.parseEncaminhamentos(sie_36)
-        print("Parse dos Encaminhamentos terminado (4/7)")
+        print("Parse dos Apresentações... (5/7)")
         self.parseApresentacoes(sie_37)
-        print("Parse das Apresentações terminado (5/7)")
+        print("Parse das Convocatórias... (6/7)")
         self.parseConvocatorias(sie_38)
-        print("Parse das Convocatórias terminado (6/7)")
+        print("Parse das Mudanças de Categoria... (7/7)")
         self.parseMudancasCategoria(sie_43)
-        print("Parse das Mudanças de Categoria terminado (7/7)")
         
     def __addNewPedidoEmpregoTo(self, utente, pd_row):
         utente.addNewPedido(pd_row)
@@ -337,12 +427,34 @@ class ListaUtentes(Mapping):
                 countUtentesIgnorados+=1 # Não faz nada porque não tem info desse utente
         print("Total de {} ({}%) utentes existentes em pd_sie_43 mas sem equivalencia na pedidos_inscritos_longos:".format(countUtentesIgnorados, int(countUtentesIgnorados/countTotal*100)))
 
-    def save(self):
-        print('Saving to {}'.format(self.PICKLE_FILENAME))
-        with open(self.PICKLE_FILENAME, 'wb') as f:
-            pickle.dump(self, f)
+    def printHistoricosTodosUtentes(self):
+        lines = self.generateHistoricosTodosUtentes()
+        for l in lines:
+            print(l)
 
+    def output2FileHistoricosTodosUtentes(self):
+        lines = self.generateHistoricosTodosUtentes()
+        with open(TEMP_DIR+"HistoricosUtentes.txt", 'w', encoding="utf-8") as f:
+            for l in lines:
+                f.write(l+"\n")
+            f.close()
+
+    def generateHistoricosTodosUtentes(self):
+        lines = []
+        for id, utente in self.items():
+            lines.append("\n {:^100}".format("Utente ID: "+str(id)))
+            lines.extend(utente.generateHistorico())
+        return lines
+
+    def save(self):
+        if not os.path.exists(TEMP_DIR):
+            os.makedirs(TEMP_DIR)
+
+        print('Saving to {}'.format(PICKLE_FILEPATH))
+        with open(PICKLE_FILEPATH, 'wb') as f:
+                pickle.dump(self.__dict__, f)
+            
     def load(self):
-        print('Loading from {}'.format(self.PICKLE_FILENAME))
-        f = open(self.PICKLE_FILENAME, 'rb') 
-        self = pickle.load(f) 
+        print('Loading from {}'.format(PICKLE_FILEPATH))
+        with  open(PICKLE_FILEPATH, 'rb') as f:
+            self.__dict__ = pickle.load(f)

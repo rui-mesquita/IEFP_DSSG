@@ -1,3 +1,6 @@
 venv/
 password.txt
 ListaUtentes.pickle
+temp/
+__pycache__/
+preload.py
