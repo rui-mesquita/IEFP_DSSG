@@ -9,7 +9,7 @@ TEMP_DIR = './temp/'
 PICKLE_FILENAME = 'ListaUtentes.pickle'
 PICKLE_FILEPATH = TEMP_DIR+PICKLE_FILENAME
 PASSWORD_FILENAME = './password.txt'
-SQL_LIMIT = 25000
+SQL_LIMIT = 999999999999
 
 def date2str(date):
     try:
@@ -322,7 +322,7 @@ class ListaUtentes(Mapping):
 
         self.__parseUserHistoryFromDatasets(pil, sie_31, sie_35, sie_36, sie_37, sie_38, sie_43)
 
-        self.save()
+        #self.save()
 
     def __parseUserHistoryFromDatasets(self, pedidos_inscritos_longos, sie_31, sie_35, sie_36, sie_37, sie_38, sie_43):
         print("Parsing da tabela pedidos_inscritos_longos... (1/7)")
@@ -452,7 +452,7 @@ class ListaUtentes(Mapping):
 
         print('Saving to {}'.format(PICKLE_FILEPATH))
         with open(PICKLE_FILEPATH, 'wb') as f:
-                pickle.dump(self.__dict__, f)
+            pickle.dump(self.__dict__, f, protocol=pickle.HIGHEST_PROTOCOL)
             
     def load(self):
         print('Loading from {}'.format(PICKLE_FILEPATH))
