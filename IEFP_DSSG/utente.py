@@ -40,6 +40,8 @@ class Utente:
             # Pedido Emprego: 19/01/2016 (201610)  
             return "{:^20} | {:6} | {:9}".format(self.descricao, self.anoMes, date2str(self.data))
 
+        def typestring(self):
+            return "{}".format(self.descricao )
         
 
     class Anulacao:
@@ -54,6 +56,9 @@ class Utente:
             # Pedido Emprego: 19/01/2016 (201610)  
             return "{:^20} | {:6} | {:9} | {}".format(self.descricao, self.anoMes, date2str(self.data), self.indD)
 
+        def typestring(self):
+            return "{} | {}".format(self.descricao, str(self.indD))
+
 
     class Intervencao:
         PRIORITY = 5
@@ -67,7 +72,9 @@ class Utente:
 
         def __str__(self):
             return "{:^20} | {:6} | {:9} | {:20.20} | {:30.30} | {:12.12}".format(self.descricao, self.anoMes, date2str(self.data), str(self.indD), str(self.codigoD), str(self.resultado))
-
+        
+        def typestring(self):
+            return "{} | {} | {} | {}".format(self.descricao, str(self.indD), str(self.codigoD), str(self.resultado) )
 
     class Encaminhamento:
         PRIORITY = 4
@@ -81,6 +88,8 @@ class Utente:
         def __str__(self):
             return "{:^20} | {:6} | {:9} | {:30.30} | {:20}".format(self.descricao, self.anoMes, date2str(self.data), str(self.codigoD), str(self.resultado))
 
+        def typestring(self):
+            return "{} | {} | {}".format(self.descricao, str(self.codigoD), str(self.resultado) )
 
     class Apresentacao:
         PRIORITY = 6
@@ -95,6 +104,8 @@ class Utente:
         def __str__(self):
             return "{:^20} | {:6} | {:9} | {:5} | {:3} | {:60.60}".format(self.descricao, self.anoMes, date2str(self.data), str(self.ofertaNr), str(self.ofertaServico), str(self.resultado))
 
+        def typestring(self):
+            return "{} | {}".format(self.descricao, str(self.resultado) )
 
     class Convocatoria:
         PRIORITY = 3
@@ -108,6 +119,8 @@ class Utente:
         def __str__(self):
             return "{:^20} | {:6} | {:9} | {:19} | {:15.15}".format(self.descricao, self.anoMes, date2str(self.data), str(self.tipo), str(self.resultado))
 
+        def typestring(self):
+            return "{} | {} | {}".format(self.descricao, str(self.tipo), str(self.resultado) )
 
     class MudancaCategoria:
         PRIORITY = 7
@@ -121,6 +134,8 @@ class Utente:
         def __str__(self):
             return "{:^20} | {:6} | {:9} | {:^35.35} | {:^35.35}".format(self.descricao, self.anoMes, date2str(self.data), str(self.categoria), str(self.categoriaAnterior))
 
+        def typestring(self):
+            return "{} | {} | {}".format(self.descricao, str(self.categoria), str(self.categoriaAnterior) )
 
 
     # Utente initialization method
