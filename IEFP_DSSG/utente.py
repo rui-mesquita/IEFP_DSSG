@@ -40,7 +40,7 @@ class Utente:
             # Pedido Emprego: 19/01/2016 (201610)  
             return "{:^20} | {:6} | {:9}".format(self.descricao, self.anoMes, date2str(self.data))
 
-        def typestring(self):
+        def typeDescription(self):
             return "{}".format(self.descricao )
         
 
@@ -56,7 +56,7 @@ class Utente:
             # Pedido Emprego: 19/01/2016 (201610)  
             return "{:^20} | {:6} | {:9} | {}".format(self.descricao, self.anoMes, date2str(self.data), self.indD)
 
-        def typestring(self):
+        def typeDescription(self):
             return "{} | {}".format(self.descricao, str(self.indD))
 
 
@@ -73,7 +73,7 @@ class Utente:
         def __str__(self):
             return "{:^20} | {:6} | {:9} | {:20.20} | {:30.30} | {:12.12}".format(self.descricao, self.anoMes, date2str(self.data), str(self.indD), str(self.codigoD), str(self.resultado))
         
-        def typestring(self):
+        def typeDescription(self):
             return "{} | {} | {} | {}".format(self.descricao, str(self.indD), str(self.codigoD), str(self.resultado) )
 
     class Encaminhamento:
@@ -88,7 +88,7 @@ class Utente:
         def __str__(self):
             return "{:^20} | {:6} | {:9} | {:30.30} | {:20}".format(self.descricao, self.anoMes, date2str(self.data), str(self.codigoD), str(self.resultado))
 
-        def typestring(self):
+        def typeDescription(self):
             return "{} | {} | {}".format(self.descricao, str(self.codigoD), str(self.resultado) )
 
     class Apresentacao:
@@ -104,7 +104,7 @@ class Utente:
         def __str__(self):
             return "{:^20} | {:6} | {:9} | {:5} | {:3} | {:60.60}".format(self.descricao, self.anoMes, date2str(self.data), str(self.ofertaNr), str(self.ofertaServico), str(self.resultado))
 
-        def typestring(self):
+        def typeDescription(self):
             return "{} | {}".format(self.descricao, str(self.resultado) )
 
     class Convocatoria:
@@ -119,7 +119,7 @@ class Utente:
         def __str__(self):
             return "{:^20} | {:6} | {:9} | {:19} | {:15.15}".format(self.descricao, self.anoMes, date2str(self.data), str(self.tipo), str(self.resultado))
 
-        def typestring(self):
+        def typeDescription(self):
             return "{} | {} | {}".format(self.descricao, str(self.tipo), str(self.resultado) )
 
     class MudancaCategoria:
@@ -134,7 +134,7 @@ class Utente:
         def __str__(self):
             return "{:^20} | {:6} | {:9} | {:^35.35} | {:^35.35}".format(self.descricao, self.anoMes, date2str(self.data), str(self.categoria), str(self.categoriaAnterior))
 
-        def typestring(self):
+        def typeDescription(self):
             return "{} | {} | {}".format(self.descricao, str(self.categoria), str(self.categoriaAnterior) )
 
 
@@ -170,14 +170,26 @@ class Utente:
 
     ## Utente Methods
 
-    def generateHistorico(self):
-        unorderedHistorico = {**self.pedidosEmprego, **self.anulacoes, **self.intervencoes, **self.encaminhamentos, **self.apresentacoes, **self.convocatorias, **self.mudancasCategoria}
-        orderedTimeStamps = sorted(unorderedHistorico)
-
+    def stringListOfEventsTypeDescription(self):
         lines = []
-        for ts in orderedTimeStamps:
-            lines.append(str(unorderedHistorico[ts]))
+        for event in self.eventsList():
+            lines.append(event.typeDescription()) # Chama method typeDescription do respectivo evento
         return lines
+
+    def stringListOfEventsFullDescription(self):
+        lines = []
+        for event in self.eventsList():
+            lines.append(str(event)) # Chama method _str_ do respectivo evento
+        return lines
+
+    def eventsList(self):
+        # Retorna todos os eventos num list ordenado cronologicamente
+        unorderedHistorico = {**self.pedidosEmprego, **self.anulacoes, **self.intervencoes, **self.encaminhamentos, **self.apresentacoes, **self.convocatorias, **self.mudancasCategoria}
+        orderedEventsList = []
+        for k, v in sorted(unorderedHistorico.items()):
+            orderedEventsList.append(v)
+
+        return orderedEventsList
 
     @staticmethod
     def nivelDeficiencia(descricaoDeficiencia):
@@ -458,7 +470,7 @@ class ListaUtentes(Mapping):
         lines = []
         for id, utente in self.items():
             lines.append("\n {:^100}".format("Utente ID: "+str(id)))
-            lines.extend(utente.generateHistorico())
+            lines.extend(utente.stringListOfEventsFullDescription())
         return lines
 
     def save(self):
