@@ -484,4 +484,5 @@ class ListaUtentes(Mapping):
     def load(self):
         print('Loading from {}'.format(PICKLE_FILEPATH))
         with  open(PICKLE_FILEPATH, 'rb') as f:
-            self.__dict__ = pickle.load(f)
+            self.__dict__ = pickle.load(f)            
+        print('Finished')
