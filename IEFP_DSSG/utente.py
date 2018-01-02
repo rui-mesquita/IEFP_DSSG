@@ -1,21 +1,30 @@
 import pandas as pd
-from collections.abc import Mapping
-from datetime import datetime
+from collections import Mapping
+import datetime
 import pickle
 import os.path
 import getpass
+from dataset import Dataset
 
 TEMP_DIR = './temp/'
 PICKLE_FILENAME = 'ListaUtentes.pickle'
 PICKLE_FILEPATH = TEMP_DIR+PICKLE_FILENAME
 PASSWORD_FILENAME = './password.txt'
 SQL_LIMIT = 999999999999
+LTU_DAYS = 365 # Nr de dias máximo de desemprego em que um inscrito nao e considerado LTU
 
 def date2str(date):
     try:
         return str(date.strftime("%Y/%m/%d"))
     except:
         return "N/A"
+
+def isValidDate(date):
+    try:
+        date.timestamp()
+        return True
+    except:
+        return False
 
 class Utente:
 
@@ -40,8 +49,15 @@ class Utente:
             # Pedido Emprego: 19/01/2016 (201610)  
             return "{:^20} | {:6} | {:9}".format(self.descricao, self.anoMes, date2str(self.data))
 
-        def typeDescription(self):
+        def eventoTipoDescricao(self):
             return "{}".format(self.descricao )
+
+        @property
+        def safeData(self):
+            if(isValidDate(self.data)):
+                return self.data
+            else:
+                return datetime.strptime(self.anoMes , '%Y%m')
         
 
     class Anulacao:
@@ -50,14 +66,21 @@ class Utente:
             self.descricao = "Anulacao"
             self.anoMes = pd_row['AnoMes']
             self.data = pd_row['Anulacao Data']
-            self.indD = pd_row['DMotivo Anulação']
+            self.indD = pd_row['DMotivo Anulação'].strip()
 
         def __str__(self):
             # Pedido Emprego: 19/01/2016 (201610)  
             return "{:^20} | {:6} | {:9} | {}".format(self.descricao, self.anoMes, date2str(self.data), self.indD)
 
-        def typeDescription(self):
+        def eventoTipoDescricao(self):
             return "{} | {}".format(self.descricao, str(self.indD))
+
+        @property
+        def safeData(self):
+            if(isValidDate(self.data)):
+                return self.data
+            else:
+                return datetime.strptime(self.anoMes , '%Y%m')
 
 
     class Intervencao:
@@ -73,8 +96,15 @@ class Utente:
         def __str__(self):
             return "{:^20} | {:6} | {:9} | {:20.20} | {:30.30} | {:12.12}".format(self.descricao, self.anoMes, date2str(self.data), str(self.indD), str(self.codigoD), str(self.resultado))
         
-        def typeDescription(self):
+        def eventoTipoDescricao(self):
             return "{} | {} | {} | {}".format(self.descricao, str(self.indD), str(self.codigoD), str(self.resultado) )
+
+        @property
+        def safeData(self):
+            if(isValidDate(self.data)):
+                return self.data
+            else:
+                return datetime.strptime(self.anoMes , '%Y%m')
 
     class Encaminhamento:
         PRIORITY = 4
@@ -88,8 +118,15 @@ class Utente:
         def __str__(self):
             return "{:^20} | {:6} | {:9} | {:30.30} | {:20}".format(self.descricao, self.anoMes, date2str(self.data), str(self.codigoD), str(self.resultado))
 
-        def typeDescription(self):
+        def eventoTipoDescricao(self):
             return "{} | {} | {}".format(self.descricao, str(self.codigoD), str(self.resultado) )
+
+        @property
+        def safeData(self):
+            if(isValidDate(self.data)):
+                return self.data
+            else:
+                return datetime.strptime(self.anoMes , '%Y%m')
 
     class Apresentacao:
         PRIORITY = 6
@@ -99,13 +136,21 @@ class Utente:
             self.data = pd_row['Apresentacao Data']
             self.ofertaNr = int(pd_row['Oferta Nr'])
             self.ofertaServico = pd_row['Oferta Servico']
-            self.resultado = pd_row['DResultado Apresentação']
+            self.resultado = pd_row['DResultado Apresentação'].strip()
 
         def __str__(self):
             return "{:^20} | {:6} | {:9} | {:5} | {:3} | {:60.60}".format(self.descricao, self.anoMes, date2str(self.data), str(self.ofertaNr), str(self.ofertaServico), str(self.resultado))
 
-        def typeDescription(self):
+        def eventoTipoDescricao(self):
             return "{} | {}".format(self.descricao, str(self.resultado) )
+
+        @property
+        def safeData(self):
+            if(isValidDate(self.data)):
+                return self.data
+            else:
+                return datetime.strptime(self.anoMes , '%Y%m')
+
 
     class Convocatoria:
         PRIORITY = 3
@@ -119,8 +164,16 @@ class Utente:
         def __str__(self):
             return "{:^20} | {:6} | {:9} | {:19} | {:15.15}".format(self.descricao, self.anoMes, date2str(self.data), str(self.tipo), str(self.resultado))
 
-        def typeDescription(self):
+        def eventoTipoDescricao(self):
             return "{} | {} | {}".format(self.descricao, str(self.tipo), str(self.resultado) )
+
+        @property
+        def safeData(self):
+            if(isValidDate(self.data)):
+                return self.data
+            else:
+                return datetime.strptime(self.anoMes , '%Y%m')
+
 
     class MudancaCategoria:
         PRIORITY = 7
@@ -134,8 +187,15 @@ class Utente:
         def __str__(self):
             return "{:^20} | {:6} | {:9} | {:^35.35} | {:^35.35}".format(self.descricao, self.anoMes, date2str(self.data), str(self.categoria), str(self.categoriaAnterior))
 
-        def typeDescription(self):
+        def eventoTipoDescricao(self):
             return "{} | {} | {}".format(self.descricao, str(self.categoria), str(self.categoriaAnterior) )
+
+        @property
+        def safeData(self):
+            if(isValidDate(self.data)):
+                return self.data
+            else:
+                return datetime.strptime(self.anoMes , '%Y%m')
 
 
     # Utente initialization method
@@ -169,14 +229,16 @@ class Utente:
         return len(self.pedidosEmprego)
 
     ## Utente Methods
-
-    def stringListOfEventsTypeDescription(self):
+    #     
+    def stringListOfEventseventoTipoDescricao(self):
+        """ Retorna lista de tipos de eventos ocorridos """
         lines = []
         for event in self.eventsList():
-            lines.append(event.typeDescription()) # Chama method typeDescription do respectivo evento
+            lines.append(event.eventoTipoDescricao()) # Chama method eventoTipoDescricao do respectivo evento
         return lines
 
     def stringListOfEventsFullDescription(self):
+        """ Retorna lista de descricao de eventos ocorridos """
         lines = []
         for event in self.eventsList():
             lines.append(str(event)) # Chama method _str_ do respectivo evento
@@ -184,12 +246,137 @@ class Utente:
 
     def eventsList(self):
         # Retorna todos os eventos num list ordenado cronologicamente
-        unorderedHistorico = {**self.pedidosEmprego, **self.anulacoes, **self.intervencoes, **self.encaminhamentos, **self.apresentacoes, **self.convocatorias, **self.mudancasCategoria}
+        unorderedHistorico = { **self.pedidosEmprego, **self.anulacoes, **self.intervencoes, **self.encaminhamentos, **self.apresentacoes, **self.convocatorias, **self.mudancasCategoria}
+        
         orderedEventsList = []
         for k, v in sorted(unorderedHistorico.items()):
             orderedEventsList.append(v)
 
-        return orderedEventsList
+        return orderedEventsList        
+
+    def generateDataset(self):
+        """
+        Para cada PedidoEmprego obtem;
+            - Historico passado do utente (idade...)
+            - Nr dias que esteve desempregado
+            - Se acabou por ficar empregad (Sim/Nao)
+            - Se foi LTU (Sim(Nao)
+        """
+        ds = Dataset()
+
+        DESCRICOES_ANULACAO_MOTIVOEMPREGO = ["COLOCAÇÃO POR MEIOS PRÓPRIOS, POR CONTA DE OUTREM",
+                        "CRIAÇÃO DO PRÓPRIO EMPREGO",
+                        "INSERÇÃO POR CONTA OUTRÉM, NA SEQUÊNCIA DE PROGRAMA",
+                        "COLOCAÇÃO - CANDIDATURA INTERNA",
+                        "COLOCAÇÃO - CANDIDATURA EXTERNA",
+                        "EXERCÍCIO ATIVIDADE PROFISSIONAL COMO MOE"]
+
+        def parseFutureAttributes(dataPedido, futureEvents):
+            LTU = '?' # Estado LTU desconhecido (None)
+            Empregado = '?' # Se está empregado
+            nrDiasDesdePedido = 0 # Inicializa a 0 dias (evento actual)
+            for evento in futureEvents:
+                nrDiasDesdePedido = (evento.safeData - dataPedido).days
+
+                if isinstance(evento, self.Anulacao):
+                    if evento.indD in DESCRICOES_ANULACAO_MOTIVOEMPREGO: # Utente Empregado
+                        Empregado = 'S'
+                        if nrDiasDesdePedido <= LTU_DAYS:
+                            LTU = 'N'
+                            return (LTU, Empregado, nrDiasDesdePedido)
+                        else:
+                            LTU = 'S'
+                            return (LTU, Empregado, nrDiasDesdePedido)
+                elif nrDiasDesdePedido > LTU_DAYS:
+                    LTU = 'S'
+                    Empregado = 'N'
+                else:
+                    Empregado = 'N'
+
+                if isinstance(evento, self.Anulacao) or isinstance(evento, self.Pedido):
+                    return (LTU, Empregado, nrDiasDesdePedido)
+
+            return (LTU, Empregado, nrDiasDesdePedido) # Se não tem mais eventos retorna ultimo estado
+
+        def nrEventosDaClasseFrom(classeEvento, historicEvents):
+            count = 0
+            for evento in historicEvents:
+                if isinstance(evento, classeEvento):
+                    count +=1
+            return count
+
+        def nrAnulacoesPorMotivo(historicEvents):
+            """ Retorna o numero de anulacoes por motivo da anulacao de um list de eventos """
+            nrAnulacoesMotivo = {}
+            for evento in historicEvents:
+                if isinstance(evento, self.Anulacao):
+                    motivoAnulacao = 'NrAnulacoesPorMotivo_'+evento.indD # Prepends String ANULACOES_
+                    if motivoAnulacao in nrAnulacoesMotivo:
+                        nrAnulacoesMotivo[motivoAnulacao] += 1
+                    else:
+                        nrAnulacoesMotivo[motivoAnulacao] = 1
+            return nrAnulacoesMotivo
+
+        def nrApresentacoesPorResultado(historicEvents):
+            """ Retorna o numero de apresentacoes por resultado da mesma de um list de eventos """
+            nrApresentacoesResultado = {}
+            for evento in historicEvents:
+                if isinstance(evento, self.Anulacao):
+                    resultadoApresentacao = 'NrApresentacoesComResultado_'+evento.indD # Prepends String APRESENTACAO_
+                    if resultadoApresentacao in nrApresentacoesResultado:
+                        nrApresentacoesResultado[resultadoApresentacao] += 1
+                    else:
+                        nrApresentacoesResultado[resultadoApresentacao] = 1
+            return nrApresentacoesResultado
+
+        listaEventos = self.eventsList()
+        listDataset = []
+        #print('Utente: '+str(self.id))
+        lastPedidoIndex = 0
+        for i, evento in enumerate(listaEventos):      
+            if isinstance(evento, self.Pedido): # Se o evento é Pedido de Emprego
+                (LTU, Empregado, diasDesemprego) = parseFutureAttributes(evento.safeData, listaEventos[i+1:]) # Passa apenas eventos posteriores
+                #print('   Pedido a {}'.format(date2str(evento.data)))
+                #print('   LTU: {} | Empregado: {} | DiasDesemprego: {}'.format(LTU, Empregado, diasDesemprego))
+                #print('')
+                nrInscricoes = nrEventosDaClasseFrom(self.Pedido, listaEventos[0:i])
+                nrAnulacoes = nrEventosDaClasseFrom(self.Anulacao, listaEventos[0:i])
+                nrIntervencoes = nrEventosDaClasseFrom(self.Intervencao, listaEventos[0:i])
+                nrEncaminhamentos = nrEventosDaClasseFrom(self.Encaminhamento, listaEventos[0:i])
+                nrApresentacoes = nrEventosDaClasseFrom(self.Apresentacao, listaEventos[0:i])
+                nrConvocatorias = nrEventosDaClasseFrom(self.Convocatoria, listaEventos[0:i])
+                nrMudancasCategoria = nrEventosDaClasseFrom(self.MudancaCategoria, listaEventos[0:i])
+
+                #print('   #Ins: {} | #Anu: {} | #Int: {} | #Enc: {}'.format(nrInscricoes, nrAnulacoes, nrIntervencoes, nrEncaminhamentos))
+                #print('   #Apr: {} | #Con: {} | #Mud: {}'.format(nrApresentacoes, nrConvocatorias, nrMudancasCategoria))
+                #print(' ')
+                dicNrAnulacoesPorMotivo = nrAnulacoesPorMotivo(listaEventos[0:i])
+                dicNrApresentacoesPorResultado = nrApresentacoesPorResultado(listaEventos[0:i])
+
+                listDataset.append({'Utente' : self.id,
+                                    'DataNascimento' : self.dataNascimento,
+                                    'Data' : evento.safeData,
+                                    'Sexo' : self.sexo,
+                                    'Nacionalidade' : self.nacionalidade,
+                                    'EstadoCivil' : self.estadoCivil,
+                                    'NivelDeficiencia' : self.deficiencia,
+                                    'ConjugeMotivoIndisponibilidade' : self.conjuge.motivoIndisponibilidade,
+                                    'NrInscricoes' : nrInscricoes,
+                                    'NrAnulacoes' : nrAnulacoes,
+                                    'NrIntervencoes' : nrIntervencoes,
+                                    'NrEncaminhamentos' : nrEncaminhamentos,
+                                    'NrApresentacoes' : nrApresentacoes,
+                                    'NrConvocatorias' : nrConvocatorias,
+                                    'NrMudancasCategoria' : nrMudancasCategoria,
+                                    **dicNrAnulacoesPorMotivo,
+                                    **dicNrApresentacoesPorResultado,
+                                    'Empregado' : Empregado,
+                                    'LTU' : LTU,
+                                    'DiasDesemprego' : diasDesemprego})
+
+                lastPedidoIndex = i
+
+        return listDataset        
 
     @staticmethod
     def nivelDeficiencia(descricaoDeficiencia):
@@ -222,6 +409,7 @@ class Utente:
 
     def addNewPedido(self, pd_row):
         # TODO: Temos casos de pedidos de emprego no mesmo mes...faz sentido? Não se deveria ignorar?
+        # TODO: Proceder actualização informação utente a cada novo pedido (se necessário)
         try:
             ts = int(pd_row['Candidatura-Data'].timestamp()) # !!! Corresponde à data efectiva do evento
         except: # Fallback caso o campo Anulacao Data não tenha registo
@@ -472,6 +660,12 @@ class ListaUtentes(Mapping):
             lines.append("\n {:^100}".format("Utente ID: "+str(id)))
             lines.extend(utente.stringListOfEventsFullDescription())
         return lines
+
+    def generateDataset(self):
+        listDataset = []
+        for id, utente in self.items():
+            listDataset += utente.generateDataset()
+        return listDataset
 
     def save(self):
         if not os.path.exists(TEMP_DIR):
