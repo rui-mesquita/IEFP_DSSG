@@ -1,10 +1,10 @@
 import pandas as pd
 from collections import Mapping
-import datetime
+from datetime import datetime
 import pickle
+import os
 import os.path
 import getpass
-from dataset import Dataset
 
 TEMP_DIR = './temp/'
 PICKLE_FILENAME = 'ListaUtentes.pickle'
@@ -262,7 +262,6 @@ class Utente:
             - Se acabou por ficar empregad (Sim/Nao)
             - Se foi LTU (Sim(Nao)
         """
-        ds = Dataset()
 
         DESCRICOES_ANULACAO_MOTIVOEMPREGO = ["COLOCAÇÃO POR MEIOS PRÓPRIOS, POR CONTA DE OUTREM",
                         "CRIAÇÃO DO PRÓPRIO EMPREGO",
@@ -523,37 +522,56 @@ class ListaUtentes(Mapping):
 
         mysqlpass = mysqlpass.strip()
 
+        print('Criar ligação MySQL')
         engine = create_engine('mysql+pymysql://grupo_1:{}@151.236.42.86:3306/iefp'.format(mysqlpass))
         connection = engine.raw_connection()
 
-        print('A executar queries SQL...')
-        pil = pd.read_sql('SELECT * FROM pedidos_inscritos_longos LIMIT {}'.format(SQL_LIMIT), connection)
-        sie_31 = pd.read_sql('SELECT * FROM sie_31 LIMIT {}'.format(SQL_LIMIT), connection)
-        sie_35 = pd.read_sql('SELECT * FROM sie_35 LIMIT {}'.format(SQL_LIMIT), connection)
-        sie_36 = pd.read_sql('SELECT * FROM sie_36 LIMIT {}'.format(SQL_LIMIT), connection)
-        sie_37 = pd.read_sql('SELECT * FROM sie_37 LIMIT {}'.format(SQL_LIMIT), connection)
-        sie_38 = pd.read_sql('SELECT * FROM sie_38 LIMIT {}'.format(SQL_LIMIT), connection)
-        sie_43 = pd.read_sql('SELECT * FROM sie_43 LIMIT {}'.format(SQL_LIMIT), connection)
-
-        self.__parseUserHistoryFromDatasets(pil, sie_31, sie_35, sie_36, sie_37, sie_38, sie_43)
-
-        #self.save()
-
-    def __parseUserHistoryFromDatasets(self, pedidos_inscritos_longos, sie_31, sie_35, sie_36, sie_37, sie_38, sie_43):
+        os.system('cls')
         print("Parsing da tabela pedidos_inscritos_longos... (1/7)")
-        self.parsePedidos(pedidos_inscritos_longos)
+        pil = pd.read_sql('SELECT * FROM pedidos_inscritos_longos LIMIT {}'.format(SQL_LIMIT), connection)
+        self.parsePedidos(pil)
+        pil = None
+
+        os.system('cls')
         print("Parsing das Anulacoes... (2/7)")
+        sie_31 = pd.read_sql('SELECT * FROM sie_31 LIMIT {}'.format(SQL_LIMIT), connection)
         self.parseAnulacoes(sie_31)
+        sie_31 = None
+
+
+        os.system('cls')
         print("Parse das Intervenções... (3/7)")
+        sie_35 = pd.read_sql('SELECT * FROM sie_35 LIMIT {}'.format(SQL_LIMIT), connection)
         self.parseIntervencoes(sie_35)
+        sie_35 = None
+
+        os.system('cls')
         print("Parse dos Encaminhamentos... (4/7)")
+        sie_36 = pd.read_sql('SELECT * FROM sie_36 LIMIT {}'.format(SQL_LIMIT), connection)
         self.parseEncaminhamentos(sie_36)
+        sie_36 = None
+
+        os.system('cls')
         print("Parse dos Apresentações... (5/7)")
+        sie_37 = pd.read_sql('SELECT * FROM sie_37 LIMIT {}'.format(SQL_LIMIT), connection)
         self.parseApresentacoes(sie_37)
+        sie_37 = None
+
+        os.system('cls')
         print("Parse das Convocatórias... (6/7)")
+        sie_38 = pd.read_sql('SELECT * FROM sie_38 LIMIT {}'.format(SQL_LIMIT), connection)
         self.parseConvocatorias(sie_38)
+        sie_38 = None
+
+        os.system('cls')
         print("Parse das Mudanças de Categoria... (7/7)")
+        sie_43 = pd.read_sql('SELECT * FROM sie_43 LIMIT {}'.format(SQL_LIMIT), connection)
         self.parseMudancasCategoria(sie_43)
+        sie_43 = None
+
+        os.system('cls')
+        print('Finalizado com Sucesso!')
+        
         
     def __addNewPedidoEmpregoTo(self, utente, pd_row):
         utente.addNewPedido(pd_row)
