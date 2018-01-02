@@ -10,7 +10,7 @@ TEMP_DIR = './temp/'
 PICKLE_FILENAME = 'ListaUtentes.pickle'
 PICKLE_FILEPATH = TEMP_DIR+PICKLE_FILENAME
 PASSWORD_FILENAME = './password.txt'
-SQL_LIMIT = 999999999999
+
 LTU_DAYS = 365 # Nr de dias máximo de desemprego em que um inscrito nao e considerado LTU
 
 def date2str(date):
@@ -31,9 +31,10 @@ class Utente:
     # Utente nested classes
 
     class Conjuge:
-        def __init__ (self, estadoCivil, motivoIndisponibilidade):
+        def __init__ (self, estadoCivil, motivoIndisponibilidade, categoria):
             self.estadoCivil = estadoCivil
             self.motivoIndisponibilidade = motivoIndisponibilidade
+            self.categoria = categoria
 
         def __str__(self):
             return "Cônjuge: Estado Civil: {:>8}  | Motivo Indisponibilidade: {}". format(self.estadoCivil, self.motivoIndisponibilidade)
@@ -41,9 +42,34 @@ class Utente:
     class Pedido:
         PRIORITY = 1
         def __init__ (self, pd_row):
+            # High expectation
             self.descricao = "Pedido de Emprego"
             self.anoMes = pd_row['AnoMes']
             self.data = pd_row['Candidatura-Data']
+            self.idade = pd_row['Ute-Idade']
+            self.estadoCivil = pd_row['Ute-Estado Civil']
+            self.deficiencia = Utente.nivelDeficiencia(pd_row['DDeficiencia'])
+            self.habilitacaoEscolar = pd_row['DHabilitacao Escolar']
+            self.categoria = pd_row['DCategoria']
+            self.formacaoProf = pd_row['Candidatura-Formacao Prof?'] 
+            self.qualificacao = pd_row['Candidatura-Qualificacao'] 
+            self.areaFormacao = pd_row['DArea Formacao-Tabela em Activo'] 
+            self.areaCurso = pd_row['DArea Curso-Tabela em Activo'] 
+            self.cnpAnterior = pd_row['DCnp Anterior'] 
+            self.subRSI = pd_row['Sub-Rsi']
+            self.cursoEstabelecimentoEnsinoSup = pd_row['Ute-Curso-Estabelec.Ens.Superior'] 
+            self.cursoAnoConclusao = pd_row['Ute-Curso-Ano Conclusão'] 
+            self.nrPessoasCargo = pd_row['Ute-Nr Pessoas Cargo']
+            self.nrDescendentesCargo = pd_row['Ute-Nr Descendentes Cargo']
+            
+            ## Medium expectiation
+            self.tempoPraticProfPret = pd_row['Candidatura-Prof Pret-Tempo Pratica']
+            self.caeAnterior = pd_row['DCae Anterior']
+            self.nrDescendentesCargo = pd_row['Ute-Nr Descendentes Cargo']
+            self.nrDescendentesCargo = pd_row['Ute-Nr Descendentes Cargo']
+
+
+            self.conjuge = Utente.Conjuge(pd_row['Conjuge Estado Civil'], pd_row['Conjuge Motivo Indisponibilidade'], pd_row['Conjuge Categoria'])
 
         def __str__(self):
             # Pedido Emprego: 19/01/2016 (201610)  
@@ -205,10 +231,10 @@ class Utente:
         self.dataNascimento = pd_row['Ute-Data Nascimento']
         self.sexo = pd_row['Sexo']
         self.nacionalidade = pd_row['DNacionalidade']
-        self.estadoCivil = pd_row['Ute-Estado Civil']
-        self.deficiencia = Utente.nivelDeficiencia(pd_row['DDeficiencia'])
-        self.conjuge = self.Conjuge(pd_row['Conjuge Estado Civil'], pd_row['Conjuge Motivo Indisponibilidade'])
+
         
+
+
         # Inicializa todos dicionarios
         self.pedidosEmprego = {}
         self.anulacoes = {}
@@ -356,10 +382,23 @@ class Utente:
                                     'DataNascimento' : self.dataNascimento,
                                     'Data' : evento.safeData,
                                     'Sexo' : self.sexo,
+                                    'Idade' : evento.idade,
                                     'Nacionalidade' : self.nacionalidade,
-                                    'EstadoCivil' : self.estadoCivil,
-                                    'NivelDeficiencia' : self.deficiencia,
-                                    'ConjugeMotivoIndisponibilidade' : self.conjuge.motivoIndisponibilidade,
+                                    'EstadoCivil' : evento.estadoCivil,
+                                    'NivelDeficiencia' : evento.deficiencia,
+                                    'HabilitacaoEscolar' : evento.habilitacaoEscolar,
+                                    'CategoriaAtrib' : evento.categoria,
+                                    'FormacaoProf' : evento.formacaoProf,
+                                    'Qualificacao' : evento.qualificacao,
+                                    'AreaFormacao' : evento.areaFormacao,
+                                    'AreaCurso' : evento.areaCurso,
+                                    'CnpAnterior' : evento.cnpAnterior,
+                                    'RSI' : evento.subRSI,
+                                    'CursoEstabelecimentoEnsinoSup' : evento.cursoEstabelecimentoEnsinoSup,
+                                    'CursoAnoConclusao' : evento.cursoAnoConclusao,
+                                    'NrPessoasCargo' : evento.nrPessoasCargo,
+                                    'NrDescendentesCargo' : evento.nrDescendentesCargo,
+                                    'ConjugeMotivoIndisponibilidade' : evento.conjuge.motivoIndisponibilidade,
                                     'NrInscricoes' : nrInscricoes,
                                     'NrAnulacoes' : nrAnulacoes,
                                     'NrIntervencoes' : nrIntervencoes,
@@ -487,10 +526,10 @@ class Utente:
         self.mudancasCategoria[ts] = self.MudancaCategoria(pd_row) # adiciona nova entrada 
 
 class ListaUtentes(Mapping):
-    def __init__(self, forceFetch = False):
+    def __init__(self, forceFetch = False, sqlLimit = 999999999999999):
         self.__dict__ = dict()
         if forceFetch:
-            self.fetch()
+            self.fetch(sqlLimit)
         else:
             self.load()
         
@@ -508,7 +547,7 @@ class ListaUtentes(Mapping):
         return len(self.__dict__)
 
     # ListaUtentes Methods
-    def fetch(self):
+    def fetch(self, sqlLimit):
         from sqlalchemy import create_engine
         import pymysql
         import pandas as pd
@@ -528,44 +567,44 @@ class ListaUtentes(Mapping):
 
         os.system('cls')
         print("Parsing da tabela pedidos_inscritos_longos... (1/7)")
-        pil = pd.read_sql('SELECT * FROM pedidos_inscritos_longos LIMIT {}'.format(SQL_LIMIT), connection)
+        pil = pd.read_sql('SELECT * FROM pedidos_inscritos_longos LIMIT {}'.format(sqlLimit), connection)
         self.parsePedidos(pil)
         pil = None
 
         os.system('cls')
         print("Parsing das Anulacoes... (2/7)")
-        sie_31 = pd.read_sql('SELECT * FROM sie_31 LIMIT {}'.format(SQL_LIMIT), connection)
+        sie_31 = pd.read_sql('SELECT * FROM sie_31 LIMIT {}'.format(sqlLimit), connection)
         self.parseAnulacoes(sie_31)
         sie_31 = None
 
 
         os.system('cls')
         print("Parse das Intervenções... (3/7)")
-        sie_35 = pd.read_sql('SELECT * FROM sie_35 LIMIT {}'.format(SQL_LIMIT), connection)
+        sie_35 = pd.read_sql('SELECT * FROM sie_35 LIMIT {}'.format(sqlLimit), connection)
         self.parseIntervencoes(sie_35)
         sie_35 = None
 
         os.system('cls')
         print("Parse dos Encaminhamentos... (4/7)")
-        sie_36 = pd.read_sql('SELECT * FROM sie_36 LIMIT {}'.format(SQL_LIMIT), connection)
+        sie_36 = pd.read_sql('SELECT * FROM sie_36 LIMIT {}'.format(sqlLimit), connection)
         self.parseEncaminhamentos(sie_36)
         sie_36 = None
 
         os.system('cls')
         print("Parse dos Apresentações... (5/7)")
-        sie_37 = pd.read_sql('SELECT * FROM sie_37 LIMIT {}'.format(SQL_LIMIT), connection)
+        sie_37 = pd.read_sql('SELECT * FROM sie_37 LIMIT {}'.format(sqlLimit), connection)
         self.parseApresentacoes(sie_37)
         sie_37 = None
 
         os.system('cls')
         print("Parse das Convocatórias... (6/7)")
-        sie_38 = pd.read_sql('SELECT * FROM sie_38 LIMIT {}'.format(SQL_LIMIT), connection)
+        sie_38 = pd.read_sql('SELECT * FROM sie_38 LIMIT {}'.format(sqlLimit), connection)
         self.parseConvocatorias(sie_38)
         sie_38 = None
 
         os.system('cls')
         print("Parse das Mudanças de Categoria... (7/7)")
-        sie_43 = pd.read_sql('SELECT * FROM sie_43 LIMIT {}'.format(SQL_LIMIT), connection)
+        sie_43 = pd.read_sql('SELECT * FROM sie_43 LIMIT {}'.format(sqlLimit), connection)
         self.parseMudancasCategoria(sie_43)
         sie_43 = None
 
