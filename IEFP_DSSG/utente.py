@@ -296,6 +296,8 @@ class Utente:
                         "COLOCAÇÃO - CANDIDATURA EXTERNA",
                         "EXERCÍCIO ATIVIDADE PROFISSIONAL COMO MOE"]
 
+        DESCR_INTERVENCAO_MOTIVOEMPREGO = ["COLOCAÇÃO"]
+
         def parseFutureAttributes(dataPedido, futureEvents):
             LTU = '?' # Estado LTU desconhecido (None)
             Empregado = '?' # Se está empregado
@@ -308,10 +310,16 @@ class Utente:
                         Empregado = 'S'
                         if nrDiasDesdePedido <= LTU_DAYS:
                             LTU = 'N'
-                            return (LTU, Empregado, nrDiasDesdePedido)
                         else:
                             LTU = 'S'
-                            return (LTU, Empregado, nrDiasDesdePedido)
+                        return (LTU, Empregado, nrDiasDesdePedido)
+                elif (isinstance(evento, self.Intervencao) and (evento.codigoD in DESCR_INTERVENCAO_MOTIVOEMPREGO)):
+                    Empregado = 'S'
+                    if nrDiasDesdePedido <= LTU_DAYS:
+                        LTU = 'N'
+                    else:
+                        LTU = 'S'
+                    return (LTU, Empregado, nrDiasDesdePedido)
                 elif nrDiasDesdePedido > LTU_DAYS:
                     LTU = 'S'
                     Empregado = 'N'
